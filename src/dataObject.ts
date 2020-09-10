@@ -17,18 +17,29 @@ export interface IDiceRoller extends EventEmitter {
     readonly value: number;
 
     /**
+     * Get the x value as a number.
+     */
+    readonly position: {x: number, y:  number};
+
+    /**
      * Roll the dice.  Will cause a "diceRolled" event to be emitted.
      */
     roll: () => void;
 
     /**
+     * move
+     */
+    move: (x: number, y: number) => void;
+
+    /**
      * The diceRolled event will fire whenever someone rolls the device, either locally or remotely.
      */
-    on(event: "diceRolled", listener: () => void): this;
+    on(event: "diceRolled" | "diceMoved", listener: () => void): this;
 }
 
 // The root is map-like, so we'll use this key for storing the value.
 const diceValueKey = "diceValue";
+const dicePosition = "dicePosition";
 
 /**
  * The DiceRoller is our data object that implements the IDiceRoller interface.
@@ -40,6 +51,9 @@ export class DiceRoller extends DataObject implements IDiceRoller {
      */
     protected async initializingFirstTime() {
         this.root.set(diceValueKey, 1);
+        this.root.set(dicePosition, {x: 10, y: 10});
+        console.log("initializeFirstTime");
+        setInterval(() => this.roll(), 500);
     }
 
     /**
@@ -47,10 +61,13 @@ export class DiceRoller extends DataObject implements IDiceRoller {
      * DataObject, by registering an event listener for dice rolls.
      */
     protected async hasInitialized() {
+        console.log("has initialized");
         this.root.on("valueChanged", (changed: IValueChanged) => {
             if (changed.key === diceValueKey) {
                 // When we see the dice value change, we'll emit the diceRolled event we specified in our interface.
                 this.emit("diceRolled");
+            } else if (changed.key ===  dicePosition) {
+                this.emit("diceMoved");
             }
         });
     }
@@ -59,9 +76,18 @@ export class DiceRoller extends DataObject implements IDiceRoller {
         return this.root.get(diceValueKey);
     }
 
+    public get position() {
+        return this.root.get(dicePosition);
+    }
+    
     public readonly roll = () => {
         const rollValue = Math.floor(Math.random() * 6) + 1;
         this.root.set(diceValueKey, rollValue);
+    };
+
+    public readonly move = (x: number, y: number) => {
+        this.root.set(dicePosition, {x, y});
+        this.emit("diceMoved");
     };
 }
 
